@@ -3,9 +3,18 @@
 #include "driver/mcpwm.h";
 #include "driver/ledc.h";
 #include <esp_err.h>
+#include <math.h>
 
 // Arbitrary
-#define DUTY_RESOLUTION 50
+#define DUTY_RESOLUTION 5
+
+#define LEDC_SPEED LEDC_HIGH_SPEED_MODE
+#define LEDC_CHANNEL LEDC_CHANNEL_0
+
+float remap_channel_precent(int value)
+{
+  return (value - 922.0f) / 818.0f;
+}
 
 void main_thread()
 {
@@ -15,7 +24,14 @@ void main_thread()
 
     CRSF_receive_channels(&channels);
 
-    printf("Channel 1 %d\n", channels.ch1);
+    // uint32_t desired_resolution = (channels.ch1);
+
+    float speed_channel = remap_channel_precent(channels.ch3);
+
+    // Not a thread-safe method
+    ledc_set_duty(LEDC_SPEED, LEDC_CHANNEL, DUTY_RESOLUTION * speed_channel);
+
+    printf("Channel 3 %f\n", speed_channel);
   }
 }
 
@@ -23,12 +39,12 @@ void app_main()
 {
 
   ledc_timer_config_t timer_config = {
-      .speed_mode = LEDC_HIGH_SPEED_MODE,
+      .speed_mode = LEDC_SPEED,
       .duty_resolution = DUTY_RESOLUTION,
-      .freq_hz = 1000};
+      .freq_hz = 50};
 
   ledc_channel_config_t channel_config = {
-      .channel = LEDC_CHANNEL_0,
+      .channel = LEDC_CHANNEL,
       .gpio_num = 21,
       .duty = (2 * DUTY_RESOLUTION),
   };
