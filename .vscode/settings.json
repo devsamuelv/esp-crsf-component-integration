@@ -1,6 +1,7 @@
 {
 	"files.associations": {
 		"esp_err.h": "c",
-		"math.h": "c"
+		"math.h": "c",
+		"esp_intr_alloc.h": "c"
 	}
 }
