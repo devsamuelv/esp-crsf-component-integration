@@ -1,80 +1,77 @@
 #include "ESP_CRSF.h"
 #include "esp_task_wdt.h"
-#include "driver/mcpwm.h"
 #include "driver/ledc.h"
 #include <esp_err.h>
 #include <math.h>
-#include <rtc_wdt.h>
 #include <stdlib.h>
 #include <esp_intr_alloc.h>
+#include <iot_servo.h>
 
 // Arbitrary
 #define DUTY_RESOLUTION LEDC_TIMER_13_BIT
 #define LEDC_SPEED LEDC_HIGH_SPEED_MODE
 #define LEDC_CHANNEL LEDC_CHANNEL_0
 
-float remap_channel_precent(int value)
-{
-  if (value == 0)
-  {
-    return 0;
-  }
-
-  return (value - 922.0f) / 818.0f;
-}
-
 void main_thread()
 {
+  servo_config_t servo_config = {
+      .max_angle = 180,
+      .min_width_us = 500,
+      .max_width_us = 2500,
+      .freq = 50,
+      .timer_number = LEDC_TIMER_0,
+      .channels = {
+          .servo_pin = {
+              19,
+          },
+          .ch = {
+              LEDC_CHANNEL_0,
+          },
+      },
+      .channel_number = 1,
+  };
+
+  ESP_ERROR_CHECK(iot_servo_init(LEDC_LOW_SPEED_MODE, &servo_config));
+
+  ESP_ERROR_CHECK(iot_servo_write_angle(LEDC_LOW_SPEED_MODE, 0, 80.0f));
   for (;;)
   {
-    crsf_channels_t channels = {0};
-
-    CRSF_receive_channels(&channels);
-
-    float speed_channel = remap_channel_precent(channels.ch3);
-
-    if (fabs(speed_channel) <= 0.05)
-    {
-      speed_channel = 0;
-    }
-
-    ESP_ERROR_CHECK(ledc_set_duty(LEDC_SPEED, LEDC_CHANNEL, 5046 * fabs(speed_channel)));
-    ESP_ERROR_CHECK(ledc_update_duty(LEDC_SPEED, LEDC_CHANNEL));
-
-    printf("Channel 3 %f\n", speed_channel);
+    esp_task_wdt_reset();
   }
+
+  vTaskDelete(NULL);
 }
 
 void app_main()
 {
 
-  ledc_timer_config_t timer_config = {
-      .speed_mode = LEDC_SPEED,
-      .timer_num = LEDC_TIMER_0,
-      .duty_resolution = DUTY_RESOLUTION,
-      .freq_hz = 50};
-  ESP_ERROR_CHECK(ledc_timer_config(&timer_config));
+  TaskHandle_t handle;
 
-  ledc_channel_config_t channel_config = {
-      .channel = LEDC_CHANNEL,
-      .speed_mode = LEDC_SPEED,
-      .gpio_num = 19,
-      .intr_type = LEDC_INTR_DISABLE,
-      .timer_sel = LEDC_TIMER_0,
-      .hpoint = 0,
-      .duty = 0,
+  servo_config_t servo_config = {
+      .max_angle = 180,
+      .min_width_us = 500,
+      .max_width_us = 2500,
+      .freq = 50,
+      .timer_number = LEDC_TIMER_0,
+      .channels = {
+          .servo_pin = {
+              18,
+          },
+          .ch = {
+              LEDC_CHANNEL_0,
+          },
+      },
+      .channel_number = 1,
   };
-  ESP_ERROR_CHECK(ledc_channel_config(&channel_config));
 
-  TaskHandle_t handle = NULL;
-  crsf_config_t config = {
-      .uart_num = UART_NUM_2,
-      .tx_pin = 17,
-      .rx_pin = 16};
+  ESP_ERROR_CHECK(iot_servo_init(LEDC_HIGH_SPEED_MODE, &servo_config));
 
-  CRSF_init(&config);
+  for (;;)
+  {
+    ESP_ERROR_CHECK(iot_servo_write_angle(LEDC_HIGH_SPEED_MODE, 0, 80.0f));
+  }
 
-  xTaskCreate(main_thread, "main", 8192, NULL, 12, &handle);
+  // xTaskCreate(main_thread, "main", 8192, NULL, tskIDLE_PRIORITY + 1, &handle);
 
-  ESP_ERROR_CHECK(esp_task_wdt_add(handle));
+  // ESP_ERROR_CHECK(esp_task_wdt_add(handle));
 }
